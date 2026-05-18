@@ -1,0 +1,558 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pulsar — Market Anomaly Detector</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #050508;
+    --surface: #0d0d14;
+    --surface2: #13131e;
+    --border: rgba(255,255,255,0.07);
+    --border2: rgba(255,255,255,0.13);
+    --text: #e8e8f0;
+    --muted: #5a5a72;
+    --accent: #7B61FF;
+    --accent-dim: rgba(123, 97, 255, 0.12);
+    --green: #00e5a0;
+    --green-dim: rgba(0, 229, 160, 0.1);
+    --amber: #ffb340;
+    --amber-dim: rgba(255, 179, 64, 0.1);
+    --red: #ff4f6a;
+    --red-dim: rgba(255, 79, 106, 0.1);
+    --font-mono: 'Space Mono', monospace;
+    --font-sans: 'DM Sans', sans-serif;
+  }
+
+  html, body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-sans);
+    font-size: 14px;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Grid background */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(123,97,255,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(123,97,255,0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* Glow orb */
+  body::after {
+    content: '';
+    position: fixed;
+    top: -200px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 600px;
+    height: 600px;
+    background: radial-gradient(circle, rgba(123,97,255,0.08) 0%, transparent 70%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .wrap {
+    position: relative;
+    z-index: 1;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 0 24px 80px;
+  }
+
+  /* Header */
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 32px 0 40px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 36px;
+  }
+
+  .logo-group {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .pulsar-icon {
+    position: relative;
+    width: 32px;
+    height: 32px;
+  }
+
+  .pulsar-icon .ring {
+    position: absolute;
+    border-radius: 50%;
+    border: 1px solid var(--accent);
+  }
+
+  .pulsar-icon .ring1 {
+    inset: 0;
+    opacity: 0.3;
+    animation: ringPulse 2s ease-out infinite;
+  }
+
+  .pulsar-icon .ring2 {
+    inset: 6px;
+    opacity: 0.5;
+    animation: ringPulse 2s ease-out 0.5s infinite;
+  }
+
+  .pulsar-icon .core {
+    position: absolute;
+    inset: 12px;
+    border-radius: 50%;
+    background: var(--accent);
+    box-shadow: 0 0 12px var(--accent);
+  }
+
+  @keyframes ringPulse {
+    0% { transform: scale(1); opacity: 0.5; }
+    100% { transform: scale(1.6); opacity: 0; }
+  }
+
+  .logo-text {
+    font-family: var(--font-mono);
+    font-size: 18px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    color: var(--text);
+  }
+
+  .logo-tagline {
+    font-size: 11px;
+    color: var(--muted);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    font-family: var(--font-mono);
+  }
+
+  .live-pill {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    font-size: 11px;
+    font-family: var(--font-mono);
+    color: var(--green);
+    background: var(--green-dim);
+    border: 1px solid rgba(0,229,160,0.2);
+    padding: 6px 12px;
+    border-radius: 100px;
+  }
+
+  .live-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--green);
+    animation: blink 1.4s ease-in-out infinite;
+  }
+
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.2} }
+
+  /* Stats row */
+  .stats {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+    margin-bottom: 36px;
+  }
+
+  @media (max-width: 600px) {
+    .stats { grid-template-columns: repeat(2, 1fr); }
+  }
+
+  .stat {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 16px 18px;
+    transition: border-color 0.2s;
+  }
+
+  .stat:hover { border-color: var(--border2); }
+
+  .stat-label {
+    font-size: 11px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    font-family: var(--font-mono);
+    margin-bottom: 8px;
+  }
+
+  .stat-value {
+    font-size: 26px;
+    font-weight: 500;
+    font-family: var(--font-mono);
+    color: var(--text);
+    line-height: 1;
+  }
+
+  .stat-sub {
+    font-size: 11px;
+    color: var(--muted);
+    margin-top: 5px;
+  }
+
+  .stat-value.accent { color: var(--accent); }
+  .stat-value.green { color: var(--green); }
+  .stat-value.red { color: var(--red); }
+
+  /* Section header */
+  .section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 14px;
+  }
+
+  .section-label {
+    font-size: 11px;
+    font-family: var(--font-mono);
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+  }
+
+  .section-count {
+    font-size: 11px;
+    font-family: var(--font-mono);
+    color: var(--muted);
+  }
+
+  /* Signal feed */
+  .feed {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 36px;
+  }
+
+  .signal {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 14px 18px;
+    display: grid;
+    grid-template-columns: 52px 100px 64px 1fr auto;
+    align-items: center;
+    gap: 16px;
+    transition: all 0.2s;
+    animation: slideIn 0.4s ease-out both;
+  }
+
+  @keyframes slideIn {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .signal:hover {
+    border-color: var(--border2);
+    background: var(--surface2);
+  }
+
+  .signal.anomaly { border-left: 2px solid var(--red); }
+  .signal.watch { border-left: 2px solid var(--amber); }
+  .signal.normal { border-left: 2px solid var(--green); }
+
+  .sig-asset {
+    font-family: var(--font-mono);
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--text);
+  }
+
+  .sig-price {
+    font-family: var(--font-mono);
+    font-size: 13px;
+    color: var(--text);
+  }
+
+  .sig-change {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    font-weight: 700;
+  }
+
+  .sig-change.up { color: var(--green); }
+  .sig-change.down { color: var(--red); }
+
+  .sig-reason {
+    font-size: 12px;
+    color: var(--muted);
+    line-height: 1.5;
+  }
+
+  .sig-reason span {
+    color: rgba(232,232,240,0.6);
+  }
+
+  .sig-badge {
+    font-size: 10px;
+    font-family: var(--font-mono);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    padding: 4px 10px;
+    border-radius: 100px;
+    white-space: nowrap;
+  }
+
+  .badge-anomaly { background: var(--red-dim); color: var(--red); border: 1px solid rgba(255,79,106,0.2); }
+  .badge-watch { background: var(--amber-dim); color: var(--amber); border: 1px solid rgba(255,179,64,0.2); }
+  .badge-normal { background: var(--green-dim); color: var(--green); border: 1px solid rgba(0,229,160,0.2); }
+
+  @media (max-width: 600px) {
+    .signal { grid-template-columns: 48px 1fr auto; grid-template-rows: auto auto; }
+    .sig-price { display: none; }
+    .sig-reason { grid-column: 1 / -1; }
+  }
+
+  /* Agent layer */
+  .agents {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(115px, 1fr));
+    gap: 8px;
+    margin-bottom: 36px;
+  }
+
+  .agent {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 14px 14px 12px;
+    transition: border-color 0.2s;
+  }
+
+  .agent:hover { border-color: var(--border2); }
+
+  .agent-name {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--text);
+    margin-bottom: 8px;
+  }
+
+  .agent-status {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    color: var(--muted);
+    margin-bottom: 6px;
+  }
+
+  .a-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  .a-dot.green { background: var(--green); box-shadow: 0 0 6px var(--green); }
+  .a-dot.amber { background: var(--amber); box-shadow: 0 0 6px var(--amber); animation: blink 1s infinite; }
+  .a-dot.gray { background: var(--muted); }
+
+  .agent-task {
+    font-size: 10px;
+    color: var(--muted);
+    line-height: 1.4;
+    font-family: var(--font-mono);
+  }
+
+  /* Footer */
+  footer {
+    border-top: 1px solid var(--border);
+    padding-top: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .footer-left {
+    font-size: 11px;
+    color: var(--muted);
+    font-family: var(--font-mono);
+  }
+
+  .footer-left strong {
+    color: var(--accent);
+  }
+
+  .footer-right {
+    font-size: 11px;
+    color: var(--muted);
+    font-family: var(--font-mono);
+  }
+
+  /* New signal animation */
+  .signal.new-entry {
+    border-color: rgba(123,97,255,0.4);
+    background: var(--accent-dim);
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <div class="logo-group">
+      <div class="pulsar-icon">
+        <div class="ring ring1"></div>
+        <div class="ring ring2"></div>
+        <div class="core"></div>
+      </div>
+      <div>
+        <div class="logo-text">pulsar</div>
+        <div class="logo-tagline">market anomaly detector</div>
+      </div>
+    </div>
+    <div class="live-pill">
+      <div class="live-dot"></div>
+      live feed
+    </div>
+  </header>
+
+  <div class="stats">
+    <div class="stat">
+      <div class="stat-label">scanned</div>
+      <div class="stat-value accent" id="scanned">0</div>
+      <div class="stat-sub">signals / 60 min</div>
+    </div>
+    <div class="stat">
+      <div class="stat-label">anomalies</div>
+      <div class="stat-value red" id="anomaly-count">0</div>
+      <div class="stat-sub">flagged now</div>
+    </div>
+    <div class="stat">
+      <div class="stat-label">passed on</div>
+      <div class="stat-value green">1</div>
+      <div class="stat-sub">high confidence</div>
+    </div>
+    <div class="stat">
+      <div class="stat-label">uptime</div>
+      <div class="stat-value" id="uptime">99.8%</div>
+      <div class="stat-sub">all agents stable</div>
+    </div>
+  </div>
+
+  <div class="section-header">
+    <span class="section-label">signal feed</span>
+    <span class="section-count" id="feed-count">— signals</span>
+  </div>
+
+  <div class="feed" id="feed"></div>
+
+  <div class="section-header">
+    <span class="section-label">agent layer</span>
+    <span class="section-count">7 agents</span>
+  </div>
+
+  <div class="agents" id="agents"></div>
+
+  <footer>
+    <div class="footer-left">built by <strong>ananya</strong> · prototype · not financial advice</div>
+    <div class="footer-right" id="timestamp">—</div>
+  </footer>
+
+</div>
+
+<script>
+  const SIGNALS = [
+    { asset: 'BTC', price: '$67,420', change: '-3.2%', dir: 'down', type: 'anomaly', reason: 'Funding rate spike on Binance perp — <span>diverging sharply from spot price</span>' },
+    { asset: 'ETH', price: '$3,541', change: '-1.8%', dir: 'down', type: 'watch', reason: 'BTC/ETH correlation breaking down — <span>watching for mean reversion signal</span>' },
+    { asset: 'SOL', price: '$142', change: '-6.1%', dir: 'down', type: 'anomaly', reason: 'Liquidation volume spike — <span>possible cascade forming across perp venues</span>' },
+    { asset: 'BNB', price: '$398', change: '+0.4%', dir: 'up', type: 'normal', reason: 'Within normal variance range — <span>no structural signal detected</span>' },
+    { asset: 'ARB', price: '$1.02', change: '-8.3%', dir: 'down', type: 'anomaly', reason: 'Open interest dropped 40% in 15 min — <span>forced unwind suspected</span>' },
+    { asset: 'AVAX', price: '$28.4', change: '+1.1%', dir: 'up', type: 'normal', reason: 'Stable correlation pattern — <span>no action required</span>' },
+    { asset: 'MATIC', price: '$0.61', change: '-4.7%', dir: 'down', type: 'watch', reason: 'Volume divergence from price — <span>monitoring for confirmation</span>' },
+  ];
+
+  const AGENTS = [
+    { name: 'Signal', dot: 'green', status: 'active', task: 'scanning 14 venues' },
+    { name: 'Research', dot: 'green', status: 'active', task: 'indexing 3 sources' },
+    { name: 'Strategy', dot: 'amber', status: 'processing', task: 'evaluating BTC signal' },
+    { name: 'Risk', dot: 'green', status: 'standing by', task: 'no veto triggered' },
+    { name: 'Execution', dot: 'gray', status: 'waiting', task: 'awaiting clearance' },
+    { name: 'Learn', dot: 'green', status: 'active', task: 'logging 847 outcomes' },
+    { name: 'Synthesis', dot: 'amber', status: 'coordinating', task: '3 agents in loop' },
+  ];
+
+  function buildSignal(s, delay) {
+    const typeMap = { anomaly: 'badge-anomaly', watch: 'badge-watch', normal: 'badge-normal' };
+    const labelMap = { anomaly: 'anomaly', watch: 'watch', normal: 'normal' };
+    const el = document.createElement('div');
+    el.className = `signal ${s.type}`;
+    el.style.animationDelay = delay + 'ms';
+    el.innerHTML = `
+      <span class="sig-asset">${s.asset}</span>
+      <span class="sig-price">${s.price}</span>
+      <span class="sig-change ${s.dir}">${s.change}</span>
+      <span class="sig-reason">${s.reason}</span>
+      <span class="sig-badge ${typeMap[s.type]}">${labelMap[s.type]}</span>
+    `;
+    return el;
+  }
+
+  function buildAgent(a, delay) {
+    const el = document.createElement('div');
+    el.className = 'agent';
+    el.style.animationDelay = delay + 'ms';
+    el.innerHTML = `
+      <div class="agent-name">${a.name}</div>
+      <div class="agent-status"><span class="a-dot ${a.dot}"></span>${a.status}</div>
+      <div class="agent-task">${a.task}</div>
+    `;
+    return el;
+  }
+
+  const feed = document.getElementById('feed');
+  const agentsEl = document.getElementById('agents');
+
+  SIGNALS.forEach((s, i) => feed.appendChild(buildSignal(s, i * 80)));
+  AGENTS.forEach((a, i) => agentsEl.appendChild(buildAgent(a, i * 60)));
+
+  const anomalyCount = SIGNALS.filter(s => s.type === 'anomaly').length;
+  document.getElementById('anomaly-count').textContent = anomalyCount;
+  document.getElementById('feed-count').textContent = SIGNALS.length + ' signals';
+
+  let count = 847;
+  setInterval(() => {
+    count += Math.floor(Math.random() * 4) + 1;
+    document.getElementById('scanned').textContent = count.toLocaleString();
+  }, 2800);
+
+  function updateTime() {
+    const now = new Date();
+    document.getElementById('timestamp').textContent =
+      'last updated ' + now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  }
+  updateTime();
+  setInterval(updateTime, 1000);
+
+  // Occasionally flash a signal row as "new"
+  setInterval(() => {
+    const rows = feed.querySelectorAll('.signal');
+    const r = rows[Math.floor(Math.random() * rows.length)];
+    r.classList.add('new-entry');
+    setTimeout(() => r.classList.remove('new-entry'), 1200);
+  }, 4000);
+</script>
+</body>
+</html>
